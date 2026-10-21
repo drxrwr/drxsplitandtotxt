@@ -1,109 +1,128 @@
-// Fungsi untuk memecah file VCF
-document.getElementById('splitButton').addEventListener('click', function() {
-    const file = document.getElementById('vcfFileInput').files[0];
-    const contactsPerFile = parseInt(document.getElementById('contactsPerFile').value, 10);
-    let fileName = document.getElementById('splitFileNameInput').value.trim() || 'split';
-    const startNumber = parseInt(document.getElementById('startNumberInput').value, 10) || 1; // Nomor awal
+'use strict';
 
-    if (!file || isNaN(contactsPerFile) || contactsPerFile <= 0) {
+const byId = id => document.getElementById(id);
+const downloadUrls = { split: [], txt: [] };
+
+function clearDownloads(kind) {
+    downloadUrls[kind].forEach(url => URL.revokeObjectURL(url));
+    downloadUrls[kind] = [];
+    byId(kind === 'split' ? 'splitVcfFiles' : 'txtDownloadLink').replaceChildren();
+}
+
+function addDownload(kind, content, name, type) {
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    downloadUrls[kind].push(url);
+    link.href = url;
+    link.download = name;
+    link.textContent = kind === 'split' ? `Download ${name}` : 'Download TXT';
+    byId(kind === 'split' ? 'splitVcfFiles' : 'txtDownloadLink').appendChild(link);
+}
+
+function parseCards(content) {
+    const normalized = content.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+    return normalized.match(/^BEGIN:VCARD[ \t]*\n[\s\S]*?^END:VCARD[ \t]*(?=\n|$)/gim) || [];
+}
+
+function splitFileName(name, additionalName, number) {
+    const parts = name.trim().split('§').map(part => part.trim());
+    let result = parts.length > 1 ? `${parts[0]} ${number}`
+        : parts[0] ? `${parts[0]}${number}` : String(number);
+    if (additionalName.trim()) result += ` ${additionalName.trim()}`;
+    return `${result}.vcf`;
+}
+
+function phoneNumbersFromCards(cards) {
+    const numbers = [];
+    cards.forEach(card => {
+        // vCard can wrap long property lines and include TEL parameters or a group.
+        const unfolded = card.replace(/\n[ \t]/g, '');
+        for (const line of unfolded.split('\n')) {
+            const match = line.match(/^(?:[\w-]+\.)?TEL(?:;[^:]*)?:(.*)$/i);
+            if (!match) continue;
+            const number = match[1].trim().replace(/^tel:/i, '');
+            if (number) numbers.push(number); // Preserve +, order, and duplicates.
+        }
+    });
+    return numbers;
+}
+
+byId('vcfFileInput').addEventListener('change', () => clearDownloads('split'));
+byId('vcfFileInputTxt').addEventListener('change', () => {
+    clearDownloads('txt');
+    byId('outputTextArea').value = '';
+    byId('totalContacts').textContent = 'Total contacts: 0';
+});
+
+byId('splitButton').addEventListener('click', async () => {
+    clearDownloads('split');
+    const file = byId('vcfFileInput').files[0];
+    const count = Number(byId('contactsPerFile').value);
+    const startValue = byId('startNumberInput').value;
+    const start = startValue === '' ? 1 : Number(startValue);
+    if (!file || !Number.isSafeInteger(count) || count <= 0) {
         alert('Masukkan file VCF dan jumlah kontak per file yang valid!');
         return;
     }
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const content = e.target.result;
-        const contacts = content.split('END:VCARD').map(contact => contact.trim() + '\nEND:VCARD').filter(contact => contact.length > 10);
-
-        if (contacts.length === 0) {
+    if (!Number.isSafeInteger(start) || start < 1) {
+        alert('Nomor awal harus berupa bilangan bulat minimal 1!');
+        return;
+    }
+    const name = byId('splitFileNameInput').value;
+    const additionalName = byId('additionalFileNameInput').value;
+    const button = byId('splitButton');
+    button.disabled = true;
+    try {
+        const cards = parseCards(await file.text());
+        if (byId('vcfFileInput').files[0] !== file) return;
+        if (!cards.length) {
             alert('File VCF tidak berisi kontak yang valid!');
             return;
         }
-
-        const splitFiles = [];
-        for (let i = 0; i < contacts.length; i += contactsPerFile) {
-            const vcfContent = contacts.slice(i, i + contactsPerFile).join('\n');
-            const blob = new Blob([vcfContent], { type: 'text/vcard' });
-            splitFiles.push(blob);
+        const lastNumber = start + Math.ceil(cards.length / count) - 1;
+        if (!Number.isSafeInteger(lastNumber)) {
+            alert('Nomor file terlalu besar. Kurangi nomor awal!');
+            return;
         }
-
-        const splitVcfFilesDiv = document.getElementById('splitVcfFiles');
-        splitVcfFilesDiv.innerHTML = ''; // Bersihkan link download sebelumnya
-
-        splitFiles.forEach((blob, index) => {
-            const currentIndex = startNumber + index; // Hitung nomor file saat ini
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `${fileName}-${currentIndex}.vcf`;
-            link.classList.add('download-link');
-            link.textContent = `${fileName}-${currentIndex}.vcf`;
-            splitVcfFilesDiv.appendChild(link);
-            splitVcfFilesDiv.appendChild(document.createElement('br'));
-        });
-
-        // Log activity
-        logActivity('Memecah file VCF');
-    };
-    reader.readAsText(file);
+        for (let offset = 0; offset < cards.length; offset += count) {
+            addDownload('split', cards.slice(offset, offset + count).join('\n') + '\n',
+                splitFileName(name, additionalName, start + offset / count), 'text/vcard;charset=utf-8');
+        }
+    } catch (error) {
+        clearDownloads('split');
+        alert('File gagal dibaca. Silakan pilih ulang file VCF!');
+    } finally {
+        button.disabled = false;
+    }
 });
 
-// Fungsi untuk mengonversi VCF ke TXT (hanya nomor telepon)
-document.getElementById('vcfFileInputTxt').addEventListener('change', function() {
-    const file = this.files[0];
-
+byId('convertButton').addEventListener('click', async () => {
+    clearDownloads('txt');
+    byId('outputTextArea').value = '';
+    byId('totalContacts').textContent = 'Total contacts: 0';
+    const file = byId('vcfFileInputTxt').files[0];
     if (!file) {
-        alert('Masukkan file VCF yang valid!');
+        alert('Silakan pilih file VCF untuk dikonversi!');
         return;
     }
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const content = e.target.result;
-        const phoneNumbers = [];
-
-        // Mengurai konten VCF dan menambahkan nomor telepon ke array
-        const vcardEntries = content.split('END:VCARD');
-        vcardEntries.forEach(entry => {
-            const telMatch = entry.match(/TEL:(.+)/);
-            if (telMatch) {
-                // Hapus tanda '+' dari nomor telepon
-                const phoneNumber = telMatch[1].trim().replace(/^\+/, '');
-                phoneNumbers.push(phoneNumber);
-            }
-        });
-
-        const textArea = document.getElementById('outputTextArea');
-        textArea.value = phoneNumbers.join('\n');
-
-        // Update jumlah kontak
-        const totalContacts = phoneNumbers.length;
-        document.getElementById('totalContacts').textContent = `Total contacts: ${totalContacts}`;
-    };
-    reader.readAsText(file);
-});
-
-document.getElementById('convertButton').addEventListener('click', function() {
-    const textAreaContent = document.getElementById('outputTextArea').value;
-    const outputFileName = document.getElementById('outputFileNameInput').value.trim() || 'contacts';
-
-    if (!textAreaContent) {
-        alert('Tidak ada nomor telepon untuk dikonversi!');
-        return;
+    const name = byId('outputFileNameInput').value.trim();
+    const button = byId('convertButton');
+    button.disabled = true;
+    try {
+        const cards = parseCards(await file.text());
+        if (byId('vcfFileInputTxt').files[0] !== file) return;
+        const numbers = phoneNumbersFromCards(cards);
+        const content = numbers.join('\n');
+        byId('outputTextArea').value = content;
+        byId('totalContacts').textContent = `Total contacts: ${numbers.length}`;
+        if (!numbers.length) {
+            alert('Tidak ada nomor telepon dalam file VCF ini!');
+            return;
+        }
+        addDownload('txt', content, name ? `${name}.txt` : 'output.txt', 'text/plain;charset=utf-8');
+    } catch (error) {
+        alert('File gagal dibaca. Silakan pilih ulang file VCF!');
+    } finally {
+        button.disabled = false;
     }
-
-    const blob = new Blob([textAreaContent], { type: 'text/plain' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${outputFileName}.txt`;
-    link.classList.add('download-link');
-    link.textContent = `Download ${outputFileName}.txt`;
-
-    const downloadLinkDiv = document.getElementById('txtDownloadLink');
-    downloadLinkDiv.innerHTML = ''; // Bersihkan link download sebelumnya
-    downloadLinkDiv.appendChild(link);
 });
-
-// Fungsi untuk log aktivitas
-function logActivity(message) {
-    console.log(message);
-}

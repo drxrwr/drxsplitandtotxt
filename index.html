@@ -1,78 +1,49 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VCF Split and Convert</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        .section {
-            margin-bottom: 30px;
-        }
-        h1, h2 {
-            color: #333;
-        }
-        input[type="file"], input[type="number"], input[type="text"], button {
-            display: block;
-            margin-bottom: 10px;
-        }
-        textarea {
-            width: 100%;
-            height: 150px;
-            margin-bottom: 10px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        #splitVcfFiles a, #txtDownloadLink a {
-            display: block;
-            margin: 5px 0;
-            color: #007bff;
-            text-decoration: none;
-        }
-        #splitVcfFiles a:hover, #txtDownloadLink a:hover {
-            text-decoration: underline;
-        }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
+        .container { max-width: 840px; margin: 0 auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+        h1 { text-align: center; }
+        input[type="file"], input[type="text"] { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; }
+        input[type="number"] { max-width: 100%; }
+        button { background: #5cb85c; color: #fff; padding: 10px 15px; border: 0; border-radius: 4px; cursor: pointer; width: 100%; }
+        button:hover { background: #4cae4c; }
+        button:disabled { opacity: .65; cursor: wait; }
+        textarea { display: block; width: 100%; min-height: 100px; resize: vertical; }
+        #splitVcfFiles a, #txtDownloadLink a { display: block; margin: 10px 0; overflow-wrap: anywhere; }
+        :focus-visible { outline: 2px solid #247024; outline-offset: 2px; }
+        @media (max-width: 480px) { body { padding: 12px; } .container { padding: 16px; } h1 { font-size: 26px; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>VCF Splitter & Converter</h1>
-
-        <div class="section">
+    <main class="container">
+        <h1>VCF Splitter &amp; Converter</h1>
+        <section>
             <h2>Split VCF</h2>
-            <input type="file" id="vcfFileInput">
-            <input type="number" id="contactsPerFile" placeholder="Contacts per file">
+            <input type="file" id="vcfFileInput" accept=".vcf,text/vcard,text/x-vcard" aria-label="File VCF untuk dipecah">
+            <input type="number" id="contactsPerFile" placeholder="Contacts per file" min="1" step="1" aria-label="Jumlah kontak per file">
             <label for="startNumberInput">Nomor Awal:</label>
-            <input type="number" id="startNumberInput" value="1" min="1">
-            
-        <input type="text" id="splitFileNameInput" placeholder="File name">
-            <button id="splitButton">Split VCF</button>
-            <div id="splitVcfFiles"></div>
-        </div>
-
-        <div class="section">
+            <input type="number" id="startNumberInput" value="1" min="1" step="1">
+            <input type="text" id="splitFileNameInput" placeholder="File name" aria-label="Nama file">
+            <input type="text" id="additionalFileNameInput" placeholder="Additional file name" aria-label="Nama tambahan di belakang nomor">
+            <button id="splitButton" type="button">Split VCF</button>
+            <div id="splitVcfFiles" aria-live="polite"></div>
+        </section>
+        <section>
             <h2>Convert VCF to TXT</h2>
-            <input type="file" id="vcfFileInputTxt">
-            <textarea id="outputTextArea" placeholder="Phone numbers will appear here..." readonly></textarea>
-            <input type="text" id="outputFileNameInput" placeholder="Output file name">
-            <button id="convertButton">Convert to TXT</button>
-            <div id="txtDownloadLink"></div>
-            <p id="totalContacts">Total contacts: 0</p>
-        </div>
-    </div>
+            <input type="file" id="vcfFileInputTxt" accept=".vcf,text/vcard,text/x-vcard" aria-label="File VCF untuk diubah ke TXT">
+            <textarea id="outputTextArea" placeholder="Phone numbers will appear here..." aria-label="Hasil nomor telepon" readonly></textarea>
+            <input type="text" id="outputFileNameInput" placeholder="Output file name" aria-label="Nama file TXT">
+            <button id="convertButton" type="button">Convert to TXT</button>
+            <div id="txtDownloadLink" aria-live="polite"></div>
+            <p id="totalContacts" aria-live="polite">Total contacts: 0</p>
+        </section>
+    </main>
     <script src="script.js"></script>
 </body>
 </html>
