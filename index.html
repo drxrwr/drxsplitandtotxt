@@ -14,8 +14,9 @@
         button { background: #5cb85c; color: #fff; padding: 10px 15px; border: 0; border-radius: 4px; cursor: pointer; width: 100%; }
         button:hover { background: #4cae4c; }
         button:disabled { opacity: .65; cursor: wait; }
-        textarea { display: block; width: 100%; min-height: 100px; resize: vertical; }
-        #splitVcfFiles a, #txtDownloadLink a { display: block; margin: 10px 0; overflow-wrap: anywhere; }
+        textarea { max-width: 100%; }
+        #splitVcfFiles a { display: block; overflow-wrap: anywhere; }
+        #txtDownloadLink a { overflow-wrap: anywhere; }
         :focus-visible { outline: 2px solid #247024; outline-offset: 2px; }
         @media (max-width: 480px) { body { padding: 12px; } .container { padding: 16px; } h1 { font-size: 26px; } }
     </style>
